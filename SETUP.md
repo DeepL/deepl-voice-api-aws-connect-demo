@@ -50,13 +50,13 @@ These instructions assume you have completed all the prerequisites, and you have
 
 3. Install NPM packages
 
-   - Open your Terminal and navigate to `connect-v2v-translation-with-cx-options/cdk-stacks`
+   - Open your Terminal and navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks`
    - Run `npm run install:all`
    - This script goes through all packages of the solution and installs necessary modules (webapp, cdk-stacks)
 
 4. Configure CDK stacks
 
-   - In your terminal, navigate to `connect-v2v-translation-with-cx-options/cdk-stacks`
+   - In your terminal, navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks`
    - To see the full instructions for the configuration script, run  
      `npm run configure:help`
    - For the purpose of this guide, start the configuration script in interactive mode which will guide you through each input one at a time.
@@ -78,7 +78,7 @@ These instructions assume you have completed all the prerequisites, and you have
 
 5. Deploy CDK stacks
 
-   - In your terminal, navigate to navigate to `connect-v2v-translation-with-cx-options/cdk-stacks`
+   - In your terminal, navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks`
    - Run the script: `npm run build:webapp` (remember to complete this step whenever you want to deploy new front end changes)
      - **On Windows devices use `npm run build:webapp:gitbash`**.
    - This script builds frontend applications (webapp)
@@ -98,7 +98,7 @@ These instructions assume you have completed all the prerequisites, and you have
 The webapp talks to DeepL through two Lambda functions, each exposed via a public [Lambda Function URL](https://docs.aws.amazon.com/lambda/latest/dg/lambda-urls.html):
 
 - `deepl-v2v-request-session` - starts a DeepL Voice2Voice realtime session
-- `deepl-v2v-get-languages` - fetches the list of supported languages
+- `deepl-v2v-get-languages` - fetches the languages supported by the DeepL Voice API (`GET /v3/languages?resource=voice`) and populates the webapp's language dropdowns: source languages are those that support transcription, target languages are those that support translated speech (currently reported by DeepL as a beta feature, so the function requests `include=beta`). Languages where that feature is provided by a DeepL service partner are also included (`include=external`); for those, call audio is processed by the partner rather than DeepL. The webapp has no built-in language list, so without this function the dropdowns will be empty
 
 The source for both lives under [`lambda-functions/`](lambda-functions/), together with the IAM trust policy and CORS configuration you will reference below.
 
@@ -107,7 +107,7 @@ You can create these resources from the [AWS Lambda Console](https://console.aws
 1. Open your terminal and navigate to the `lambda-functions` folder:
 
    ```bash
-   cd connect-v2v-translation-with-cx-options/lambda-functions
+   cd deepl-voice-api-aws-connect-demo/lambda-functions
    ```
 
 2. Set the region you are deploying to (use the same region as the rest of the solution):
@@ -116,7 +116,7 @@ You can create these resources from the [AWS Lambda Console](https://console.aws
    export REGION=us-east-1
    ```
 
-3. Build a fresh deployment package for each function from its `index.mjs` source (do **not** rely on the pre-built `.zip` files in the repo — they can be out of date):
+3. Build a deployment package for each function from its `index.mjs` source (the repo does not ship pre-built `.zip` files, and `.gitignore` keeps these out of commits):
 
    ```bash
    (cd request-session && zip -qr ../request-session-deploy.zip index.mjs)
@@ -138,9 +138,11 @@ You can create these resources from the [AWS Lambda Console](https://console.aws
    ROLE_ARN=$(aws iam get-role --role-name deepl-v2v-lambda-role --query 'Role.Arn' --output text)
    ```
 
-5. Create the two functions (Node.js 20.x, handler `index.handler`):
+5. Create the two functions (Node.js 20.x, handler `index.handler`). The first line re-reads the role ARN so this step also works in a new terminal session; if it prints an error, the role from step 4 does not exist yet:
 
    ```bash
+   ROLE_ARN=$(aws iam get-role --role-name deepl-v2v-lambda-role --query 'Role.Arn' --output text)
+
    aws lambda create-function \
      --function-name deepl-v2v-request-session \
      --runtime nodejs20.x \
@@ -160,7 +162,7 @@ You can create these resources from the [AWS Lambda Console](https://console.aws
      --region "$REGION"
    ```
 
-   > If you re-run this later to update the code, use `aws lambda update-function-code --function-name <name> --zip-file fileb://<zip> --region "$REGION"` instead of `create-function`.
+   > If you re-run this later to update the code, use `aws lambda update-function-code --function-name <name> --zip-file fileb://<zip> --region "$REGION"` instead of `create-function`. Do this whenever you pull changes to an `index.mjs` under `lambda-functions/`; the Function URL stays the same, so no webapp changes are needed.
 
 6. Set the DeepL API key environment variables (see [Step 5b](#5b-configure-deepl-api-keys) for details on the keys):
 
@@ -243,7 +245,7 @@ The webapp reads the two Function URLs from build-time environment variables. Yo
 1. In your terminal, navigate to the `webapp` folder and create a `.env` file from the example:
 
    ```bash
-   cd connect-v2v-translation-with-cx-options/webapp
+   cd deepl-voice-api-aws-connect-demo/webapp
    cp .env.example .env
    ```
 
@@ -280,7 +282,7 @@ The webapp reads the two Function URLs from build-time environment variables. Yo
 
 8. Configure Cognito Callback and Logout URLs
 
-   - In your terminal, navigate to `connect-v2v-translation-with-cx-options/cdk-stacks`
+   - In your terminal, navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks`
    - Start the configuration script in interactive mode  
      `npm run configure`
    - The script loads all the existing parameters, and prompts for new parameters to be provided
@@ -289,7 +291,7 @@ The webapp reads the two Function URLs from build-time environment variables. Yo
      - `cognito-logout-urls`: Domain of your web application, in this case Amazon CloudFront Distribution URL. For instance: `https://aaaabbbbcccc.cloudfront.net`
      - For the Demo / Development purposes, you can configure both the previously entered `https://localhost:5173` and Amazon CloudFront Distribution URL (comma separated)
    - The script stores the deployment parameters to AWS System Manager Parameter Store
-   - While in `connect-v2v-translation-with-cx-options/cdk-stacks`, run the deploy script: `npm run cdk:deploy`
+   - While in `deepl-voice-api-aws-connect-demo/cdk-stacks`, run the deploy script: `npm run cdk:deploy`
      - **On Windows devices use `npm run cdk:deploy:gitbash`**.
    - Wait for the CDK stacks to be updated
 
@@ -305,16 +307,38 @@ The webapp reads the two Function URLs from build-time environment variables. Yo
 
 To be able to make changes in the Webapp and test them locally, without re-deploying the Webapp to Amazon CloudFront, please follow these steps:
 
-1. In your terminal, navigate to `connect-v2v-translation-with-cx-options/cdk-stacks`
+1. In your terminal, navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks`
 2. Synchronise the Webapp config parameters: `npm run sync-config`
 3. This script will download `frontend-config.js` to the `webapp` folder
-4. In your terminal, navigate to `connect-v2v-translation-with-cx-options/webapp`
+4. In your terminal, navigate to `deepl-voice-api-aws-connect-demo/webapp`
 5. To start the Webapp: `npm run dev`
 6. This script starts a local Vite server on port 5173
 7. Open your browser and navigate to `https://localhost:5173`
 8. You can make changes and customize Webapp files, with browser automatically reloading the Webapp
 9. Please make sure you add `https://localhost:5173` as Amazon Connect Approved Origin (see Step 6 in **Solution setup** -> **Configure Amazon Connect Approved Origins**)
-10. Once happy with the changes, navigate to `connect-v2v-translation-with-cx-options/cdk-stacks` and `npm run build:deploy:all` (On Windows devices use `npm run build:deploy:all:gitbash`)
+10. Once happy with the changes, navigate to `deepl-voice-api-aws-connect-demo/cdk-stacks` and `npm run build:deploy:all` (On Windows devices use `npm run build:deploy:all:gitbash`)
+
+## Updating an existing deployment
+
+If you already completed **Solution setup** and are pulling new changes, you only need to redeploy what changed:
+
+1. **Lambda code** (any `lambda-functions/*/index.mjs` changed) - rebuild and upload each changed function, in every region you deployed to. Run these from the `lambda-functions` folder, since that is where the zip is written and where `fileb://` looks for it:
+
+   ```bash
+   cd deepl-voice-api-aws-connect-demo/lambda-functions
+   export REGION=<your-lambda-region>
+   (cd get-languages && zip -qr ../get-languages-deploy.zip index.mjs)
+   aws lambda update-function-code \
+     --function-name deepl-v2v-get-languages \
+     --zip-file fileb://get-languages-deploy.zip \
+     --region "$REGION"
+   ```
+
+   Use `request-session` / `deepl-v2v-request-session` in place of `get-languages` / `deepl-v2v-get-languages` for the other function. If your functions were created with different names (e.g. from the Lambda Console), list them with `aws lambda list-functions --region "$REGION" --query 'Functions[].FunctionName'` and use those names instead. Do **not** run `create-function` to update: it would create a second function with a new Function URL that the webapp does not use. The role, Function URL, CORS, permissions and environment variables are kept, so Steps 5a.4-5a.8 do not need to be repeated, and the webapp needs no changes because the Function URLs stay the same.
+
+2. **Webapp code** (anything under `webapp/` changed) - from `deepl-voice-api-aws-connect-demo/cdk-stacks`, run `npm run build:deploy:all` (On Windows devices use `npm run build:deploy:all:gitbash`)
+
+If a change needs both, update the Lambda functions first, so the new webapp never runs against old Lambda code.
 
 ## Clean up
 

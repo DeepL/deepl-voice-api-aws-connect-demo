@@ -1177,8 +1177,14 @@ async function loadTranslateLanguageCodes() {
   });
   console.info(`${LOGGER_PREFIX} - loadTranslateLanguageCodes - DeepL Translate From Languages:`, deepLTranslateFromLanguages);
 
+  // Each party's selected language is both what they speak (source) and what the other party hears (target),
+  // so the simplified selects only offer languages that support both transcription and translated speech
+  const deepLTargetLanguageCodes = new Set(deepLTranslateToLanguages.map((language) => language.language));
+  const deepLConversationLanguages = deepLTranslateFromLanguages.filter((language) => deepLTargetLanguageCodes.has(language.language));
+  const isConversationLanguage = (code) => deepLConversationLanguages.some((language) => language.language === code);
+
   // Populate new simplified language selects
-  deepLTranslateFromLanguages.forEach((language) => {
+  deepLConversationLanguages.forEach((language) => {
     const option = document.createElement("option");
     option.value = language.language;
     option.textContent = language.name;
@@ -1209,9 +1215,11 @@ async function loadTranslateLanguageCodes() {
   CCP_V2V.UI.customerLanguageSelect.value = defaultCustomerLang;
   CCP_V2V.UI.agentLanguageSelect.value = defaultAgentLang;
 
-  //pre-select saved languages (for new simplified selects)
-  const savedCustomerLanguage = getLocalStorageValueByKey("customerLanguage");
-  const savedAgentLanguage = getLocalStorageValueByKey("agentLanguage");
+  //pre-select saved languages (for new simplified selects), ignoring any that are no longer offered
+  let savedCustomerLanguage = getLocalStorageValueByKey("customerLanguage");
+  let savedAgentLanguage = getLocalStorageValueByKey("agentLanguage");
+  if (!isConversationLanguage(savedCustomerLanguage)) savedCustomerLanguage = null;
+  if (!isConversationLanguage(savedAgentLanguage)) savedAgentLanguage = null;
 
   if (savedCustomerLanguage) {
     CCP_V2V.UI.customerLanguageSelect.value = savedCustomerLanguage;
@@ -1528,6 +1536,12 @@ function loadVoiceIds() {
   option = document.createElement("option");
   option.value = "male";
   option.textContent = "Male";
+  CCP_V2V.UI.customerVoiceIdSelect.appendChild(option);
+  CCP_V2V.UI.agentVoiceIdSelect.appendChild(option.cloneNode(true));
+
+  option = document.createElement("option");
+  option.value = "match";
+  option.textContent = "Match Voice (if available)";
   CCP_V2V.UI.customerVoiceIdSelect.appendChild(option);
   CCP_V2V.UI.agentVoiceIdSelect.appendChild(option.cloneNode(true));
 
