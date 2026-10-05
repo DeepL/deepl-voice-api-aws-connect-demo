@@ -1,5 +1,4 @@
 import { getDeepLVoiceStream } from "../utils/transcribeUtils";
-import { SUPPORTED_SOURCE_LANGUAGES, SUPPORTED_TARGET_LANGUAGES } from "../supportedLanguages.js";
 import { ConnectionHealthMonitor } from "../managers/ConnectionHealthMonitor.js";
 import { AUDIO_INGEST_SAMPLE_RATE, BUFFER_LEN } from "../constants.js";
 
@@ -67,34 +66,34 @@ class DeepLVoiceClient {
     });
   }
 
+  /**
+   * Fetch Voice API languages via the get-languages Lambda proxy
+   * @param {string} type - 'source' (transcription) or 'target' (translated speech)
+   * @returns {Promise<Array<{language: string, name: string}>>}
+   */
   async getLanguages(type = "source") {
-    // Return hard-coded supported languages from config
-    return type === "source" ? SUPPORTED_SOURCE_LANGUAGES : SUPPORTED_TARGET_LANGUAGES;
+    try {
+      const response = await fetch(this.getLanguagesProxy, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ type }),
+      });
 
-    // Lambda proxy code (commented out - uncomment to fetch from API)
-    // try {
-    //   const response = await fetch(this.getLanguagesProxy, {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       'Accept': 'application/json',
-    //     },
-    //     body: JSON.stringify({ type, environment: this.environment }),
-    //   });
-    //
-    //   if (!response.ok) {
-    //     const error = await response.json().catch(() => ({}));
-    //     throw new Error(`Get languages failed: ${response.status} - ${error.message || response.statusText}`);
-    //   }
-    //
-    //   const data = await response.json();
-    //   return data;
-    // } catch (error) {
-    //   if (this.onError) {
-    //     this.onError(error);
-    //   }
-    //   throw error;
-    // }
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(`Get languages failed: ${response.status} - ${error.error || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (this.onError) {
+        this.onError(error);
+      }
+      throw error;
+    }
   }
 
   /**

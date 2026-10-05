@@ -140,3 +140,5 @@ vite.config.ts.timestamp-*
 
 # .DS_Store
 *.DS_Store
+# Lambda deployment packages (built locally during SETUP.md Step 5a, never committed)
+lambda-functions/**/*.zip
